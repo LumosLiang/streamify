@@ -1,53 +1,177 @@
-> 当前 `terraform/` 已改为 Azure，请使用 [Azure setup](azure.md)。下文保留为原 GCP 参考。
+# Terraform 安装与部署
 
-## Terraform Infra Setup
+中文 | [English](terraform.en.md)
 
-Clone the repository in your local machine.
+先完成 [Azure 账号与权限准备](azure.md)。以下命令在 **Mac** 上执行，不是在云 VM 上执行。
+
+## 1. 安装 Terraform
 
 ```bash
-git clone https://github.com/ankurchavda/streamify.git && \
-cd streamify/terraform
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+terraform version
 ```
 
-Spin up the Infra -
+当前 `main.tf` 要求 Terraform **>= 1.16.0 且 < 2.0**，AzureRM provider 固定为 **5.4.0**。
 
-- Initiate terraform and download the required dependencies-
+## 2. 填写参数
 
-  ```bash
-  terraform init
-  ```
+在项目根目录执行。已有 `terraform.tfvars` 时直接编辑，不要用示例覆盖：
 
-- View the Terraform plan
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+```
 
-  You will be asked to enter two values, the name of the GCS bucket you want to create and your GCP Project ID. Use the same values throughout the project. 
+| 文件 | 作用 |
+| --- | --- |
+| `main.tf` | 定义要创建的资源 |
+| `variables.tf` | 定义参数、类型和默认值 |
+| `terraform.tfvars.example` | 参数填写示例，不会自动加载 |
+| `terraform.tfvars` | 你的实际参数，覆盖默认值，不提交到 Git |
+| `.terraform.lock.hcl` | 锁定 provider 版本和校验值，提交到 Git |
+| `.terraform/` | `init` 下载的插件缓存，不提交到 Git |
 
-  ```bash
-  terraform plan
-  ```
+填写这几个值：
 
-- Terraform plan should show the creation of following services -
+| 参数 | 填什么 |
+| --- | --- |
+| `subscription_id` | Azure Portal 中额度订阅的 Subscription ID |
+| `storage_account_name` | 自己起的全球唯一名称，3–24 位小写字母或数字 |
+| `admin_source_cidr` | SSH 实际公网出口 IPv4 加 `/32` |
+| `ssh_public_key_path` | Mac 上的公钥路径，例如 `~/.ssh/id_ed25519.pub` |
+| `location` | `southeastasia`，即新加坡 |
 
-  - `e2-standard-4` Compute Instance for Kafka
-  - `e2-standard-4` Compute Instance for Airflow
-  - Dataproc Spark Cluster
-    - One `e2-standard-2` Master node
-    - Two `e2-medium` Worker nodes
-  - A Google Cloud Storage bucket
-  - Two Bigquery Datasets
-    - streamify_stg
-    - streamify_prod
-  - Firewall rule to open port `9092` on the Kafka Instance
+未填写的参数使用 `variables.tf` 中的默认值；没有默认值的参数必须提供。
+已有 SSH 公钥可以复用，没有时运行 `ssh-keygen -t ed25519`，不要覆盖已有密钥。
+如果使用 VPN，确认 SSH 流量走的是放行的出口；HTTP 代理查询到的 IP 不一定是 SSH 的出口。
 
-- Apply the infra. **Note** - Billing will start as soon as the apply is complete.
+## 3. 检查并创建资源
 
-  ```bash
-  terraform apply
-  ```
+<a id="azure-login"></a>
 
-- Once you are done with the project. Teardown the infra using-
+### Azure 登录
 
-  ```bash
-  terraform destroy
-  ```
+登录并选择额度订阅：
 
-**Note:** The infra was setup a tad generously, you might not actually be fully utilizing the compute power. Feel free to reduce the instance sizes and test.
+```bash
+az login
+az account list --output table
+az account set --subscription "<subscription-id>"
+az account show --output table
+```
+
+Terraform 使用这个登录身份，不需要为本机部署另建服务账号或下载密钥。
+
+### Terraform 命令
+
+在 `terraform/` 目录执行：
+
+```bash
+terraform init
+terraform validate
+terraform plan
+```
+
+- `init` 下载 provider 并初始化工作目录。
+- `validate` 检查配置是否合法。
+- `plan` 连接 Azure，预览将创建、修改或删除的资源；不会创建 VM。
+
+确认计划符合预期后，再执行：
+
+```bash
+terraform apply
+```
+
+`apply` 会再次展示计划，需要输入 `yes` 确认。资源创建后开始计费。
+
+## 4. 默认资源
+
+| 原 GCP 资源 | Azure 对应 |
+| --- | --- |
+| Kafka VM | 1 台 D4as v5：4 核、16 GiB |
+| Airflow VM | 1 台 E2as v5：2 核、16 GiB |
+| Dataproc：1 Master + 2 Workers | 3 台 D2as v5：每台 2 核、8 GiB，Spark 另行安装 |
+| GCS bucket | 1 个 ADLS Gen2 Storage Account + `streamify` 容器 |
+| BigQuery STG / PROD | 此配置不创建；后续在现有 AWS Snowflake 中配置 |
+
+每台 VM 使用 Ubuntu 24.04 和 32 GiB Standard SSD 系统盘。
+网络资源包括 Resource Group、VNet、Subnet、NSG、网卡和公网 IP。
+SSH 只允许 `admin_source_cidr` 指定的地址，VM 之间用私网 IP 通信。
+
+Terraform 只创建基础设施，不安装 Docker 或启动应用，也没有自动关机。
+部署完成后，按 [SSH 配置](ssh.md) 连接 VM，再按 [Kafka 与 Eventsim 部署](kafka.md) 安装服务。
+
+数据和 checkpoint 使用同一个容器，后续路径为：
+
+```text
+abfss://streamify@<account-name>.dfs.core.windows.net/<event-type>/
+abfss://streamify@<account-name>.dfs.core.windows.net/checkpoint/<event-type>/
+```
+
+Snowflake 外部 Stage 对应的地址为：
+
+```text
+azure://<account-name>.blob.core.windows.net/streamify/
+```
+
+没有沿用原 GCP 全桶 30 天删除规则，避免清理正在使用的 checkpoint。
+
+<a id="runtime-identities"></a>
+
+### 运行身份与权限
+
+| 用途 | 身份与权限 | 配置位置 |
+| --- | --- | --- |
+| 在 Mac 上部署资源 | 你的 Azure 用户及部署权限 | Azure CLI 登录、订阅 IAM |
+| Spark 读写 ADLS | VM Managed Identity，Storage Blob Data Contributor | Terraform 创建 |
+| Airflow 读取 ADLS | VM Managed Identity，Storage Blob Data Reader | Terraform 创建 |
+| AWS Snowflake 读取 ADLS | Snowflake 对应的 Azure Service Principal | 后续配置 Storage Integration 时授权 |
+
+Managed Identity 是 Azure 为 VM 管理的程序身份，不需要手动保存凭据。Terraform 创建身份和权限后，Spark 等程序仍需配置为使用这个身份访问存储。
+
+## 5. State 和后续修改
+
+Azure state 保存在本地 `azure.tfstate`，与原 GCP 的 `terraform.tfstate` 分开。保留 state，Terraform 才能跟踪已创建的资源。
+
+如果这个目录此前初始化过 GCP backend，使用 `terraform init -reconfigure`，不要把 GCP state 迁入 Azure 配置。已有 GCP 资源仍需用原配置和原 state 管理。
+
+以后调整规格，修改 `terraform.tfvars` 或默认值，再运行 `terraform plan` 查看影响。计划可能包含停机或替换资源，确认后才执行 `apply`。
+
+## 6. 停机与删除
+
+日常不用时，在 Portal 对五台 VM 执行 Stop，确认状态为 **Stopped (deallocated)**。
+也可以用 CLI 逐台解除分配，例如：
+
+```bash
+az vm deallocate --resource-group "<resource-group>" --name "<vm-name>"
+```
+
+解除分配停止计算计费，磁盘、公网 IP 和 ADLS 仍计费。本配置没有自动关机。
+
+脚本只停止当前 Azure CLI 订阅中 `streamify-rg` 下、本项目定义的 **五台 VM**：Kafka、Airflow、Spark Master 和两个 Worker，不会处理其他 VM。在 Mac 的项目根目录运行：
+
+```bash
+# 先查看订阅和目标，不执行关机
+bash scripts/stop_compute.sh --dry-run
+
+# 确认范围后，停止并解除分配
+bash scripts/stop_compute.sh
+```
+
+脚本逐台等待完成并检查状态；一台失败会继续处理其他 VM，最后返回失败状态。
+目标资源组和五台 VM 的名称与 `terraform/main.tf` 一致。订阅由 `az account set` 选择，脚本不保存账号或 IP。
+
+
+只有不再需要整套资源时，才在 `terraform/` 目录运行：
+
+```bash
+terraform destroy
+```
+
+它会删除受此 state 管理的资源及相关数据，不是日常关机命令。
+
+参考：[Terraform 安装](https://developer.hashicorp.com/terraform/install)
+
+- [Terraform 使用 Azure CLI 认证](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/guides/azure_cli)
+- [Managed Identity](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview)

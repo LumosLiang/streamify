@@ -1,80 +1,60 @@
 # Streamify
 
-> Azure 迁移：目前仅完成基础设施配置；操作步骤见 [Azure setup](setup/azure.md)。以下是原 GCP 流水线说明，应用部署尚未迁移。
+中文 | [English](README.en.md)
 
-A data pipeline with Kafka, Spark Streaming, dbt, Docker, Airflow, Terraform, GCP and much more!
+本项目基于 [原始 Streamify 项目](https://github.com/ankurchavda/streamify)，在 Azure 上重新实现数据流水线，用 Snowflake 替代 BigQuery 作为数仓。
+Kafka、开源 Spark 和 Airflow 使用 Azure VM 与 Docker 部署，基础设施由 Terraform 管理。
 
-## Description
+## 项目做什么
 
-### Objective
+[Eventsim](https://github.com/Interana/eventsim) 模拟音乐网站的听歌、浏览和登录事件。
+原项目通过 Kafka 接收事件，Spark 每两分钟写入数据湖，再按小时用 dbt 生成维度表和事实表，分析热门歌曲、活跃用户和用户分布。
 
-The project will stream events generated from a fake music streaming service (like Spotify) and create a data pipeline that consumes the real-time data. The data coming in would be similar to an event of a user listening to a song, navigating on the website, authenticating. The data would be processed in real-time and stored to the data lake periodically (every two minutes). The hourly batch job will then consume this data, apply transformations, and create the desired tables for our dashboard to generate analytics. We will try to analyze metrics like popular songs, active users, user demographics etc.
+Eventsim 使用 [Million Song Dataset](http://millionsongdataset.com) 的 [10,000 首歌曲子集](http://millionsongdataset.com/pages/getting-dataset/#subset)。随项目保留的 Eventsim Docker 构建来自 [viirya 的分支](https://github.com/viirya/eventsim)。
 
-### Dataset
+## 迁移进度
 
-[Eventsim](https://github.com/Interana/eventsim) is a program that generates event data to replicate page requests for a fake music web site. The results look like real use data, but are totally fake. The docker image is borrowed from [viirya's fork](https://github.com/viirya/eventsim) of it, as the original project has gone without maintenance for a few years now.
+- Terraform 已适配 Azure：五台 VM、必要网络和 ADLS Gen2。
+- Kafka 与 Eventsim 已适配私网地址、内存配置和安装脚本。
+- Spark 流任务、Airflow DAG 和 dbt SQL 仍需迁移；Snowflake 接入尚未完成。
 
-Eventsim uses song data from [Million Songs Dataset](http://millionsongdataset.com) to generate events. I have used a [subset](http://millionsongdataset.com/pages/getting-dataset/#subset) of 10000 songs.
+目标链路：
 
-### Tools & Technologies
+```text
+Eventsim → Kafka → Spark → ADLS Gen2 → Snowflake → dbt 模型 → BI
+                                      ↑
+                           Airflow 调度加载与转换
+```
 
-- Cloud - [**Google Cloud Platform**](https://cloud.google.com)
-- Infrastructure as Code software - [**Terraform**](https://www.terraform.io)
-- Containerization - [**Docker**](https://www.docker.com), [**Docker Compose**](https://docs.docker.com/compose/)
-- Stream Processing - [**Kafka**](https://kafka.apache.org), [**Spark Streaming**](https://spark.apache.org/docs/latest/streaming-programming-guide.html)
-- Orchestration - [**Airflow**](https://airflow.apache.org)
-- Transformation - [**dbt**](https://www.getdbt.com)
-- Data Lake - [**Google Cloud Storage**](https://cloud.google.com/storage)
-- Data Warehouse - [**BigQuery**](https://cloud.google.com/bigquery)
-- Data Visualization - [**Data Studio**](https://datastudio.google.com/overview)
-- Language - [**Python**](https://www.python.org)
+dbt 把转换 SQL 提交给 Snowflake 执行。上图表示目标架构，不代表整条链路已经跑通。
 
-### Architecture
+## 操作顺序
 
-![streamify-architecture](images/Streamify-Architecture.jpg)
+1. [Azure 账号与权限](setup/azure.md)
+2. [Terraform 安装与部署](setup/terraform.md)
+3. [SSH 连接与端口转发](setup/ssh.md)
+4. [Kafka 与 Eventsim](setup/kafka.md)
 
-### Final Result
+文档使用占位符。自己的 IP、订阅信息和密钥只填写到本地配置，不要提交到仓库。
 
-![dashboard](images/dashboard.png)
-## Setup
+## 原项目参考
 
-**WARNING: You will be charged for all the infra setup. You can avail 300$ in credit by creating a new account on GCP.**
-### Pre-requisites
+下图是原 GCP 架构，尚未替换成 Azure 版本：
 
-If you already have a Google Cloud account and a working terraform setup, you can skip the pre-requisite steps.
+![原 Streamify GCP 架构](images/Streamify-Architecture.jpg)
 
-- Google Cloud Platform. 
-  - [GCP Account and Access Setup](setup/gcp.md)
-  - [gcloud alternate installation method - Windows](https://github.com/DataTalksClub/data-engineering-zoomcamp/blob/main/week_1_basics_n_setup/1_terraform_gcp/windows.md#google-cloud-sdk)
-- Terraform
-  - [Setup Terraform](https://github.com/DataTalksClub/data-engineering-zoomcamp/blob/main/week_1_basics_n_setup/1_terraform_gcp/windows.md#terraform)
+原项目的仪表盘示例：
 
+![原项目仪表盘](images/dashboard.png)
 
-### Get Going!
+以下文档仍是原 GCP 版本，不要直接作为 Azure 部署步骤：
 
-A video walkthrough of how I run my project - [YouTube Video](https://youtu.be/vzoYhI8KTlY)
+- [GCP 配置](setup/gcp.md)
+- [Spark 配置](setup/spark.md)
+- [Airflow 配置](setup/airflow.md)
+- [调试说明](setup/debug.md)
+- [原作者视频演示](https://youtu.be/vzoYhI8KTlY)
 
-- Procure infra on GCP with Terraform - [Setup](setup/terraform.md)
-- (Extra) SSH into your VMs, Forward Ports - [Setup](setup/ssh.md)
-- Setup Kafka Compute Instance and start sending messages from Eventsim - [Setup](setup/kafka.md)
-- Setup Spark Cluster for stream processing - [Setup](setup/spark.md)
-- Setup Airflow on Compute Instance to trigger the hourly data pipeline - [Setup](setup/airflow.md)
+原项目还列出了增量模型、数据质量测试、更多维度模型、CI/CD 和可视化等改进方向；这些不在当前迁移范围内。
 
-
-### Debug
-
-If you run into issues, see if you find something in this debug [guide](setup/debug.md).
-### How can I make this better?!
-A lot can still be done :).
-- Choose managed Infra
-  - Cloud Composer for Airflow
-  - Confluent Cloud for Kafka
-- Create your own VPC network
-- Build dimensions and facts incrementally instead of full refresh
-- Write data quality tests
-- Create dimensional models for additional business processes
-- Include CI/CD
-- Add more visualizations
-
-### Special Mentions
-I'd like to thank the [DataTalks.Club](https://datatalks.club) for offering this Data Engineering course for completely free. All the things I learnt there, enabled me to come up with this project. If you want to upskill on Data Engineering technologies, please check out the [course](https://github.com/DataTalksClub/data-engineering-zoomcamp). :)
+感谢原作者和 [DataTalks.Club Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp) 提供的项目与课程资料。
