@@ -1,80 +1,78 @@
-## Setup Kafka VM
+# Kafka + Eventsim on Azure
 
-![kafka](../images/kafka.jpg)
+Kafka 和 Eventsim 仍运行在同一台 VM 的独立容器中。
+保留原 Confluent 5.4.0 / ZooKeeper 架构、镜像版本及原有数据卷设置。
+本次只适配私网地址、Eventsim 堆内存以及 Ubuntu 24.04 安装/启动步骤。
 
-We will setup Kafka and eventsim in two separate docker processes in a dedicated compute instance. Eventsim will communicate with port `9092` of the `broker` container of Kafka to send events.
+## 1. 登录并准备项目
 
-- Establish SSH connection
+在 Mac 上运行：
 
-  ```bash
-  ssh streamify-kafka
-  ```
+```zsh
+ssh streamify-kafka
+```
 
-- Clone git repo and cd into Kafka folder
+将包含本次修改的项目放到 VM。后续命令在 **VM** 上、项目根目录执行。
+如果用 Git 获取项目，应先确保远端分支包含这些修改；本地未提交的修改不会自动出现在 VM。
+项目不必放在 `~/streamify`，启动脚本会根据自身位置找到 Eventsim。
 
-  ```bash
-  git clone https://github.com/ankurchavda/streamify.git && \
-  ```
+## 2. 安装 Docker 和 Compose
 
-- Install anaconda, docker & docker-compose.
+```bash
+bash scripts/vm_setup.sh
+```
 
-  ```bash
-  bash ~/streamify/scripts/vm_setup.sh && \
-  exec newgrp docker
-  ```
+该脚本使用 Docker 官方 Ubuntu 软件源安装 Docker Engine 和 Compose 插件，
+不再安装 Anaconda、旧版独立 Compose 或创建 GCP 凭据目录。
+安装完成后执行 `exit`，从 Mac 重新 SSH 登录，使 Docker 用户组权限生效。
+返回 VM 上的项目根目录，检查：
 
-- Set the evironment variables -
+```bash
+docker --version
+docker compose version
+```
 
-  - External IP of the Kafka VM
+## 3. 启动 Kafka
 
-    ```bash
-    export KAFKA_ADDRESS=IP.ADD.RE.SS
-    ```
+```bash
+export KAFKA_ADDRESS=10.42.1.7
+docker compose -f kafka/docker-compose.yml up -d
+docker compose -f kafka/docker-compose.yml ps
+```
 
-     **Note**: You will have to setup these env vars every time you create a new shell session. Or if you stop/start your VM
+`10.42.1.7` 是 2026-09-08 查询到的 Kafka VM **私网 IP**。
+重建 VM 后请重新核对；每次新终端运行 Compose 前都要设置该环境变量。
+Compose 现在要求明确设置地址，避免默认 localhost 导致另一台 VM 上的 Spark 连接失败。
 
-- Start Kafka 
+`KAFKA_ADVERTISED_LISTENERS` 会把这个地址告知客户端。
+Docker 内部组件仍使用 `broker:29092`；Spark 使用 `10.42.1.7:9092`。
 
-  ```bash
-  cd ~/streamify/kafka && \
-  docker-compose build && \
-  docker-compose up 
-  ```
+等待 Broker 就绪，可用下面的命令验证；如果失败，先查看容器日志：
 
-  **Note**: Sometimes the `broker` & `schema-registry` containers die during startup. You should just stop all the containers with `docker-compose down` and then rerun `docker-compose up`.
+```bash
+docker compose -f kafka/docker-compose.yml exec broker \
+  kafka-topics --bootstrap-server broker:29092 --list
+```
 
-- The Kafka Control Center should be available on port `9021`. Open and check if everything is working fine.
+Kafka Control Center 的 SSH 转发和访问方式见 [SSH setup](ssh.md)。
 
-- Open another terminal session for the Kafka VM and start sending messages to your Kafka broker with Eventsim
+## 4. 启动 Eventsim
 
-  ```bash
-  bash ~/streamify/scripts/eventsim_startup.sh
-  ```
+在 VM 的项目根目录执行：
 
-  This will start creating events for 1 Million users spread out from the current time to the next 24 hours. 
-  The container will run in detached mode. Follow the logs to see the progress.
+```bash
+bash scripts/eventsim_startup.sh
+docker logs --follow million_events
+```
 
-- To follow the logs
+Eventsim 使用 host 网络，因此连接同机的 `localhost:9092` 保持不变。
+Java 堆上限从 8 GB 改为 4 GB；容器内存上限仍为 5.5 GB，给非堆内存留空间。
+原有 100 万用户、持续生成 24 小时等参数保持不变。
 
-  ```bash
-  docker logs --follow million_events
-  ```
+脚本用于首次创建容器；如果 `million_events` 已存在，不要重复执行创建命令。
+查看现有容器状态：`docker ps -a --filter name=million_events`。
+已停止的原容器可用 `docker start million_events` 启动（仍沿用其创建时的参数和镜像）。
 
-- The messages should start flowing-in in a few minutes.
-  
-- You should see four topics -
+启动后应能看到四个 Topic：`listen_events`、`page_view_events`、`auth_events`、`status_change_events`。
 
-  - listen_events
-  - page_view_events
-  - auth_events
-  - status_change_events
-  ![topics](../images/topics.png)
-
-- **Note:** If you happen to re-rerun the evenstim container and face the following error -
-  
-  >docker: Error response from daemon: Conflict. The container name "/million_events" is already in use by container
-  
-  then run the below command
-  ```bash
-  docker system prune
-  ```
+安装参考：https://docs.docker.com/engine/install/ubuntu/

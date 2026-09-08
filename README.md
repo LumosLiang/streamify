@@ -1,5 +1,7 @@
 # Streamify
 
+> Azure 迁移：目前仅完成基础设施配置；操作步骤见 [Azure setup](setup/azure.md)。以下是原 GCP 流水线说明，应用部署尚未迁移。
+
 A data pipeline with Kafka, Spark Streaming, dbt, Docker, Airflow, Terraform, GCP and much more!
 
 ## Description

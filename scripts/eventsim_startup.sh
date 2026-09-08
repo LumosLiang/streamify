@@ -1,4 +1,9 @@
-cd ~/streamify/eventsim
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve from this script so the repository can live in any directory.
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$script_dir/../eventsim"
 
 echo "Building Eventsim Image..."
 docker build -t events:1.0 .

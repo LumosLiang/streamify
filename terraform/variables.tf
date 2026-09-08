@@ -1,51 +1,51 @@
-variable "project" {
-  description = "Your GCP Project ID"
+variable "subscription_id" {
+  description = "Your Visual Studio Azure subscription ID."
   type        = string
 }
 
-variable "region" {
-  description = "Your project region"
-  default     = "us-central1"
+variable "location" {
+  description = "Azure region; southeastasia is Singapore."
+  type        = string
+  default     = "southeastasia"
+}
+
+variable "storage_account_name" {
+  description = "Globally unique name: 3-24 lowercase letters and digits."
   type        = string
 }
 
-variable "zone" {
-  description = "Your project zone"
-  default     = "us-central1-a"
-  type        = string
+variable "admin_username" {
+  type    = string
+  default = "streamify"
 }
 
-variable "storage_class" {
-  description = "Storage class type for your bucket"
-  default     = "STANDARD"
+variable "ssh_public_key_path" {
+  description = "Public key for SSH into the VMs, not an Azure login credential."
   type        = string
+  default     = "~/.ssh/id_ed25519.pub"
 }
 
-variable "vm_image" {
-  description = "Image for you VM"
-  default     = "ubuntu-os-cloud/ubuntu-2004-lts"
+variable "admin_source_cidr" {
+  description = "Your Singapore public exit IPv4 followed by /32."
   type        = string
+  validation {
+    condition     = can(cidrnetmask(var.admin_source_cidr)) && can(regex("/32$", var.admin_source_cidr))
+    error_message = "Use your actual public IPv4 followed by /32."
+  }
 }
 
-variable "network" {
-  description = "Network for your instance/cluster"
-  default     = "default"
-  type        = string
+variable "kafka_vm_size" {
+  type    = string
+  default = "Standard_D4as_v5"
 }
 
-variable "stg_bq_dataset" {
-  description = "Storage class type for your bucket. Check official docs for more info."
-  default     = "streamify_stg"
-  type        = string
+variable "airflow_vm_size" {
+  type    = string
+  default = "Standard_E2as_v5"
 }
 
-variable "prod_bq_dataset" {
-  description = "Storage class type for your bucket. Check official docs for more info."
-  default     = "streamify_prod"
+variable "spark_vm_size" {
+  description = "Size for each Spark Master/Worker VM."
   type        = string
-}
-
-variable "bucket" {
-  description = "The name of your bucket. This should be unique across GCP"
-  type        = string
+  default     = "Standard_D2as_v5"
 }

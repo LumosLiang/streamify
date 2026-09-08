@@ -1,151 +1,165 @@
 terraform {
-  required_version = ">=1.0"
-  backend "local" {}
+  required_version = ">= 1.16.0, < 2.0.0"
+  # Separate from the original GCP terraform.tfstate; do not migrate GCP state.
+  backend "local" {
+    path = "azure.tfstate"
+  }
   required_providers {
-    google = {
-      source = "hashicorp/google"
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "= 5.4.0"
     }
   }
 }
 
-provider "google" {
-  project = var.project
-  region  = var.region
-  zone    = var.zone
-  // credentials = file(var.credentials)  # Use this if you do not want to set env-var GOOGLE_APPLICATION_CREDENTIALS
+# Authenticate locally using az login.
+provider "azurerm" {
+  features {}
+  subscription_id     = var.subscription_id
+  storage_use_azuread = true
 }
 
-
-resource "google_compute_firewall" "port_rules" {
-  project     = var.project
-  name        = "kafka-broker-port"
-  network     = var.network
-  description = "Opens port 9092 in the Kafka VM for Spark cluster to connect"
-
-  allow {
-    protocol = "tcp"
-    ports    = ["9092"]
-  }
-
-  source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["kafka"]
-
-}
-
-resource "google_compute_instance" "kafka_vm_instance" {
-  name                      = "streamify-kafka-instance"
-  machine_type              = "e2-standard-4"
-  tags                      = ["kafka"]
-  allow_stopping_for_update = true
-
-  boot_disk {
-    initialize_params {
-      image = var.vm_image
-      size  = 30
-    }
-  }
-
-  network_interface {
-    network = var.network
-    access_config {
-    }
+# Same topology as the original: Kafka, Airflow, Spark Master and two Workers.
+# Azure has no Dataproc resource; Spark nodes are ordinary VMs here.
+locals {
+  vm_sizes = {
+    kafka          = var.kafka_vm_size
+    airflow        = var.airflow_vm_size
+    spark-master   = var.spark_vm_size
+    spark-worker-1 = var.spark_vm_size
+    spark-worker-2 = var.spark_vm_size
   }
 }
 
+resource "azurerm_resource_group" "main" {
+  name     = "streamify-rg"
+  location = var.location
+}
 
-resource "google_compute_instance" "airflow_vm_instance" {
-  name                      = "streamify-airflow-instance"
-  machine_type              = "e2-standard-4"
-  allow_stopping_for_update = true
+# Azure VMs need a VNet, subnet and NIC; the GCP project used its default network.
+resource "azurerm_virtual_network" "main" {
+  name                = "streamify-vnet"
+  address_space       = ["10.42.0.0/16"]
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+}
 
-  boot_disk {
-    initialize_params {
-      image = var.vm_image
-      size  = 30
-    }
+resource "azurerm_subnet" "main" {
+  name                 = "services"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.42.1.0/24"]
+}
+
+resource "azurerm_network_security_group" "main" {
+  name                = "streamify-nsg"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  security_rule {
+    name                       = "SSHFromAdmin"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = var.admin_source_cidr
+    destination_address_prefix = "*"
   }
+  # Default rules allow private VNet traffic and deny other Internet ingress.
+  # Kafka/Spark communicate using private IPs. Access web UIs through SSH tunnels.
+}
 
-  network_interface {
-    network = var.network
-    access_config {
-    }
+resource "azurerm_subnet_network_security_group_association" "main" {
+  subnet_id                 = azurerm_subnet.main.id
+  network_security_group_id = azurerm_network_security_group.main.id
+}
+
+# Public IPs provide SSH and outbound downloads without a separate NAT Gateway.
+resource "azurerm_public_ip" "vm" {
+  for_each            = local.vm_sizes
+  name                = "streamify-${each.key}-pip"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+resource "azurerm_network_interface" "vm" {
+  for_each            = local.vm_sizes
+  name                = "streamify-${each.key}-nic"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  ip_configuration {
+    name                          = "primary"
+    subnet_id                     = azurerm_subnet.main.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.vm[each.key].id
   }
 }
 
-resource "google_storage_bucket" "bucket" {
-  name          = var.bucket
-  location      = var.region
-  force_destroy = true
-
-  uniform_bucket_level_access = true
-
-  lifecycle_rule {
-    action {
-      type = "Delete"
-    }
-    condition {
-      age = 30 # days
-    }
+resource "azurerm_linux_virtual_machine" "vm" {
+  for_each                        = local.vm_sizes
+  name                            = "streamify-${each.key}"
+  resource_group_name             = azurerm_resource_group.main.name
+  location                        = azurerm_resource_group.main.location
+  size                            = each.value
+  admin_username                  = var.admin_username
+  disable_password_authentication = true
+  network_interface_ids           = [azurerm_network_interface.vm[each.key].id]
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = trimspace(file(pathexpand(var.ssh_public_key_path)))
   }
-}
-
-
-resource "google_dataproc_cluster" "mulitnode_spark_cluster" {
-  name   = "streamify-multinode-spark-cluster"
-  region = var.region
-
-  cluster_config {
-
-    staging_bucket = var.bucket
-
-    gce_cluster_config {
-      network = var.network
-      zone    = var.zone
-
-      shielded_instance_config {
-        enable_secure_boot = true
-      }
-    }
-
-    master_config {
-      num_instances = 1
-      machine_type  = "e2-standard-2"
-      disk_config {
-        boot_disk_type    = "pd-ssd"
-        boot_disk_size_gb = 30
-      }
-    }
-
-    worker_config {
-      num_instances = 2
-      machine_type  = "e2-medium"
-      disk_config {
-        boot_disk_size_gb = 30
-      }
-    }
-
-    software_config {
-      image_version = "2.0-debian10"
-      override_properties = {
-        "dataproc:dataproc.allow.zero.workers" = "true"
-      }
-      optional_components = ["JUPYTER"]
-    }
-
+  identity { type = "SystemAssigned" }
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "StandardSSD_LRS"
+    disk_size_gb         = 32
   }
-
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "ubuntu-24_04-lts"
+    sku       = "server"
+    version   = "latest"
+  }
+  depends_on = [azurerm_subnet_network_security_group_association.main]
 }
 
-resource "google_bigquery_dataset" "stg_dataset" {
-  dataset_id                 = var.stg_bq_dataset
-  project                    = var.project
-  location                   = var.region
-  delete_contents_on_destroy = true
+# Replaces the original GCS bucket. HNS enables ADLS Gen2 (abfss://).
+resource "azurerm_storage_account" "lake" {
+  name                            = var.storage_account_name
+  resource_group_name             = azurerm_resource_group.main.name
+  location                        = azurerm_resource_group.main.location
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  is_hns_enabled                  = true
+  min_tls_version                 = "TLS1_2"
+  shared_access_key_enabled       = false
+  allow_nested_items_to_be_public = false
+  # Authenticated access from the future Snowflake account on AWS.
+  public_network_access_enabled = true
 }
 
-resource "google_bigquery_dataset" "prod_dataset" {
-  dataset_id                 = var.prod_bq_dataset
-  project                    = var.project
-  location                   = var.region
-  delete_contents_on_destroy = true
+# Like the original bucket: events and checkpoint/ share one container.
+resource "azurerm_storage_container" "lake" {
+  name                  = "streamify"
+  storage_account_id    = azurerm_storage_account.lake.id
+  container_access_type = "private"
 }
+
+# Runtime identities: no downloaded service-account key is needed.
+resource "azurerm_role_assignment" "spark_storage" {
+  for_each             = toset(["spark-master", "spark-worker-1", "spark-worker-2"])
+  scope                = azurerm_storage_container.lake.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_linux_virtual_machine.vm[each.key].identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "airflow_storage" {
+  scope                = azurerm_storage_container.lake.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_linux_virtual_machine.vm["airflow"].identity[0].principal_id
+}
+
+# BigQuery datasets are removed. Snowflake STG/PROD setup is a later step.

@@ -1,3 +1,5 @@
+> 当前 `terraform/` 已改为 Azure，请使用 [Azure setup](azure.md)。下文保留为原 GCP 参考。
+
 ## Terraform Infra Setup
 
 Clone the repository in your local machine.
