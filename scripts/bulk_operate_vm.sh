@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Start or deallocate only the five Streamify VMs defined in terraform/main.tf.
-# Preview: bash scripts/stop_compute.sh start --dry-run
-# Start: bash scripts/stop_compute.sh start
-# Stop: bash scripts/stop_compute.sh stop
+# Preview: bash scripts/bulk_operate_vm.sh start --dry-run
+# Start: bash scripts/bulk_operate_vm.sh start
+# Stop: bash scripts/bulk_operate_vm.sh stop
 # No resource deletion. Disks, public IPs and storage remain billable after stop.
 set -euo pipefail
 

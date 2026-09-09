@@ -15,11 +15,11 @@ try:
         .format("kafka")
         .option("kafka.bootstrap.servers", f"{kafka_address}:{kafka_port}")
         .option("subscribe", kafka_topic)
-        .option("startingOffsets", "latest")
+        .option("startingOffsets", "earliest")
         .option("endingOffsets", "latest")
         .load()
     )
-    kafka_stream.select("topic").distinct().show(truncate=False)
+    kafka_stream.select("topic", "partition", "offset").limit(1).show(truncate=False)
     print(f"Kafka metadata validation passed for {kafka_address}:{kafka_port}")
 finally:
     spark.stop()

@@ -22,31 +22,31 @@ Terraform 已配置公钥，不必重复上传。
 打开 `~/.ssh/config`，没有则新建。把下面的占位符换成自己的值，再添加到文件中；已有同名 Host 时修改原条目，不要覆盖其他主机。
 
 ```sshconfig
-Host kafka-vm
+Host streamify-kafka
     HostName <kafka-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host airflow-vm
+Host streamify-airflow
     HostName <airflow-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host spark-master-vm
+Host streamify-spark streamify-spark-master
     HostName <spark-master-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host spark-worker-1-vm
+Host streamify-spark-worker-1
     HostName <spark-worker-1-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host spark-worker-2-vm
+Host streamify-spark-worker-2
     HostName <spark-worker-2-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
@@ -66,14 +66,14 @@ chmod 600 ~/.ssh/<private-key-file>
 每次选择一条命令执行，进入 VM 后用 `exit` 返回 Mac：
 
 ```zsh
-ssh kafka-vm
-ssh airflow-vm
-ssh spark-master-vm
-ssh spark-worker-1-vm
-ssh spark-worker-2-vm
+ssh streamify-kafka
+ssh streamify-airflow
+ssh streamify-spark
+ssh streamify-spark-worker-1
+ssh streamify-spark-worker-2
 ```
 
-`spark-master-vm` 指向 Spark master。
+`streamify-spark` 和 `streamify-spark-master` 指向同一台 Spark master。
 首次连接时核对主机指纹后再接受。
 
 SSH 的公网出口必须与 `terraform.tfvars` 中的 `admin_source_cidr` 一致。
@@ -88,7 +88,7 @@ SSH 的公网出口必须与 `terraform.tfvars` 中的 `admin_source_cidr` 一�
 Airflow：
 
 ```zsh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:8080 airflow-vm
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:8080 streamify-airflow
 ```
 
 打开 `http://localhost:8080`。
@@ -96,7 +96,7 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:8080 airflow-vm
 Spark Master，本机使用 8082 避免与 Airflow 冲突：
 
 ```zsh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8082:127.0.0.1:8080 spark-master-vm
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8082:127.0.0.1:8080 streamify-spark
 ```
 
 打开 `http://localhost:8082`。
@@ -104,7 +104,7 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8082:127.0.0.1:8080 spark-master
 Kafka Control Center：
 
 ```zsh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:9021:127.0.0.1:9021 kafka-vm
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:9021:127.0.0.1:9021 streamify-kafka
 ```
 
 打开 `http://localhost:9021`。Broker 的 9092 是消息端口，不是网页。

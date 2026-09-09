@@ -153,13 +153,13 @@ The script starts or stops only the **five project VMs** in `streamify-rg` in th
 
 ```bash
 # Preview the subscription and targets without stopping anything
-bash scripts/stop_compute.sh stop --dry-run
+bash scripts/bulk_operate_vm.sh stop --dry-run
 
 # After reviewing the scope, stop and deallocate the VMs
-bash scripts/stop_compute.sh stop
+bash scripts/bulk_operate_vm.sh stop
 
 # Start the five VMs
-bash scripts/stop_compute.sh start
+bash scripts/bulk_operate_vm.sh start
 ```
 
 `start` and `stop` both support `--dry-run`; an explicit action is required. Startup verifies VM power state, not the readiness of services inside Docker.

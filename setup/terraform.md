@@ -153,13 +153,13 @@ az vm deallocate --resource-group "<resource-group>" --name "<vm-name>"
 
 ```bash
 # 先查看订阅和目标，不执行关机
-bash scripts/stop_compute.sh stop --dry-run
+bash scripts/bulk_operate_vm.sh stop --dry-run
 
 # 确认范围后，停止并解除分配
-bash scripts/stop_compute.sh stop
+bash scripts/bulk_operate_vm.sh stop
 
 # 启动五台 VM
-bash scripts/stop_compute.sh start
+bash scripts/bulk_operate_vm.sh start
 ```
 
 `start` 和 `stop` 均支持 `--dry-run`；必须显式指定操作。启动仅检查 VM 运行状态，不代表 Docker 内的服务已就绪。

@@ -10,7 +10,7 @@ The changes cover private addressing, the Eventsim heap limit, and installation 
 Connect from your Mac:
 
 ```zsh
-ssh kafka-vm
+ssh streamify-kafka
 ```
 
 Place the project, including the current changes, on the VM. Run the remaining commands from the **project root on the VM**.
