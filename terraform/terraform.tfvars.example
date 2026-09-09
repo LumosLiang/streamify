@@ -1,5 +1,5 @@
-subscription_id      = "ca348b91-ff0f-44b4-8dfc-eb35cb54a72a"
+subscription_id      = "<subscription-id>"
 storage_account_name = "replacewithuniquename"
-admin_source_cidr    = "81.28.13.195/32" # Replace with your Singapore public exit IP.
+admin_source_cidr    = "<your-public-ip>/32"
 ssh_public_key_path  = "~/.ssh/id_ed25519.pub"
 location             = "southeastasia"

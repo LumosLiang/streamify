@@ -1,6 +1,6 @@
 # Run the script using the following command
 # spark-submit \
-#   --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.2 \
+#   --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6 \
 # stream_all_events.py
 
 import os
@@ -15,11 +15,17 @@ AUTH_EVENTS_TOPIC = "auth_events"
 KAFKA_PORT = "9092"
 
 KAFKA_ADDRESS = os.getenv("KAFKA_ADDRESS", 'localhost')
-GCP_GCS_BUCKET = os.getenv("GCP_GCS_BUCKET", 'streamify')
-GCS_STORAGE_PATH = f'gs://{GCP_GCS_BUCKET}'
+AZURE_STORAGE_ACCOUNT = os.environ["AZURE_STORAGE_ACCOUNT"]
+AZURE_STORAGE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "streamify")
+ADLS_STORAGE_PATH = (
+    f"abfss://{AZURE_STORAGE_CONTAINER}@"
+    f"{AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net"
+)
 
 # initialize a spark session
-spark = create_or_get_spark_session('Eventsim Stream')
+spark = create_or_get_spark_session(
+    "Eventsim Stream", storage_account=AZURE_STORAGE_ACCOUNT
+)
 spark.streams.resetTerminated()
 # listen events stream
 listen_events = create_kafka_read_stream(
@@ -41,18 +47,18 @@ auth_events = process_stream(
 
 # write a file to storage every 2 minutes in parquet format
 listen_events_writer = create_file_write_stream(listen_events,
-                                                f"{GCS_STORAGE_PATH}/{LISTEN_EVENTS_TOPIC}",
-                                                f"{GCS_STORAGE_PATH}/checkpoint/{LISTEN_EVENTS_TOPIC}"
+                                                f"{ADLS_STORAGE_PATH}/{LISTEN_EVENTS_TOPIC}",
+                                                f"{ADLS_STORAGE_PATH}/checkpoint/{LISTEN_EVENTS_TOPIC}"
                                                 )
 
 page_view_events_writer = create_file_write_stream(page_view_events,
-                                                   f"{GCS_STORAGE_PATH}/{PAGE_VIEW_EVENTS_TOPIC}",
-                                                   f"{GCS_STORAGE_PATH}/checkpoint/{PAGE_VIEW_EVENTS_TOPIC}"
+                                                   f"{ADLS_STORAGE_PATH}/{PAGE_VIEW_EVENTS_TOPIC}",
+                                                   f"{ADLS_STORAGE_PATH}/checkpoint/{PAGE_VIEW_EVENTS_TOPIC}"
                                                    )
 
 auth_events_writer = create_file_write_stream(auth_events,
-                                              f"{GCS_STORAGE_PATH}/{AUTH_EVENTS_TOPIC}",
-                                              f"{GCS_STORAGE_PATH}/checkpoint/{AUTH_EVENTS_TOPIC}"
+                                              f"{ADLS_STORAGE_PATH}/{AUTH_EVENTS_TOPIC}",
+                                              f"{ADLS_STORAGE_PATH}/checkpoint/{AUTH_EVENTS_TOPIC}"
                                               )
 
 

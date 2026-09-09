@@ -1,1 +1,9 @@
 logs/
+__pycache__/
+
+# Local infrastructure state and credentials.
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+!terraform/terraform.tfvars.example

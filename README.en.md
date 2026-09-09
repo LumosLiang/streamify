@@ -16,7 +16,7 @@ Eventsim uses the [10,000-song subset](http://millionsongdataset.com/pages/getti
 
 - Terraform has been adapted to Azure: five VMs, networking, and ADLS Gen2.
 - Kafka and Eventsim have updated private-address configuration, memory settings, and installation scripts.
-- Spark streaming jobs, Airflow DAGs, and dbt SQL still need migration. The Snowflake connection is not complete.
+- Spark standalone cluster and ADLS Gen2 streaming output are adapted. Airflow DAGs, dbt SQL, and the Snowflake connection are not complete.
 
 Planned pipeline:
 
@@ -34,6 +34,7 @@ dbt submits transformation SQL to Snowflake. This is the target architecture, no
 2. [Install and use Terraform](setup/terraform.en.md)
 3. [SSH access and port forwarding](setup/ssh.en.md)
 4. [Kafka and Eventsim](setup/kafka.en.md)
+5. [Spark standalone cluster](setup/spark.en.md)
 
 Documentation uses placeholders. Keep actual IPs, subscription details, and keys in your local configuration, out of the repository.
 
@@ -50,7 +51,6 @@ The original project's dashboard example:
 These guides still describe the GCP version and should not be followed as Azure deployment instructions:
 
 - [GCP setup](setup/gcp.md)
-- [Spark setup](setup/spark.md)
 - [Airflow setup](setup/airflow.md)
 - [Debugging](setup/debug.md)
 - [Original video walkthrough](https://youtu.be/vzoYhI8KTlY)

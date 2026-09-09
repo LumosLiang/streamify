@@ -10,7 +10,7 @@ Kafka 和 Eventsim 在同一台 VM 的独立容器中运行。保留原项目的
 在 Mac 上登录：
 
 ```zsh
-ssh streamify-kafka
+ssh kafka-vm
 ```
 
 将包含当前修改的项目放到 VM。后续命令在 **VM 的项目根目录**执行。

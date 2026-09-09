@@ -149,15 +149,20 @@ az vm deallocate --resource-group "<resource-group>" --name "<vm-name>"
 
 解除分配停止计算计费，磁盘、公网 IP 和 ADLS 仍计费。本配置没有自动关机。
 
-脚本只停止当前 Azure CLI 订阅中 `streamify-rg` 下、本项目定义的 **五台 VM**：Kafka、Airflow、Spark Master 和两个 Worker，不会处理其他 VM。在 Mac 的项目根目录运行：
+脚本只启动或停止当前 Azure CLI 订阅中 `streamify-rg` 下、本项目定义的 **五台 VM**：Kafka、Airflow、Spark Master 和两个 Worker，不会处理其他 VM。在 Mac 的项目根目录运行：
 
 ```bash
 # 先查看订阅和目标，不执行关机
-bash scripts/stop_compute.sh --dry-run
+bash scripts/stop_compute.sh stop --dry-run
 
 # 确认范围后，停止并解除分配
-bash scripts/stop_compute.sh
+bash scripts/stop_compute.sh stop
+
+# 启动五台 VM
+bash scripts/stop_compute.sh start
 ```
+
+`start` 和 `stop` 均支持 `--dry-run`；必须显式指定操作。启动仅检查 VM 运行状态，不代表 Docker 内的服务已就绪。
 
 脚本逐台等待完成并检查状态；一台失败会继续处理其他 VM，最后返回失败状态。
 目标资源组和五台 VM 的名称与 `terraform/main.tf` 一致。订阅由 `az account set` 选择，脚本不保存账号或 IP。

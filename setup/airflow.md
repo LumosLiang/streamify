@@ -7,7 +7,7 @@ We will setup airflow on docker in a dedicated compute instance. dbt is setup in
 - Establish SSH connection
 
   ```bash
-  ssh streamify-airflow
+  ssh airflow-vm
   ```
 
 - Clone git repo

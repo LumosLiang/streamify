@@ -22,31 +22,31 @@ Terraform has already installed the public key, so there is no need to upload it
 Open `~/.ssh/config`, creating it if necessary. Replace the placeholders below before adding the entries. If a Host already exists, update its entry without overwriting other hosts.
 
 ```sshconfig
-Host streamify-kafka
+Host kafka-vm
     HostName <kafka-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host streamify-airflow
+Host airflow-vm
     HostName <airflow-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host streamify-spark streamify-spark-master
+Host spark-master-vm
     HostName <spark-master-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host streamify-spark-worker-1
+Host spark-worker-1-vm
     HostName <spark-worker-1-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
     IdentitiesOnly yes
 
-Host streamify-spark-worker-2
+Host spark-worker-2-vm
     HostName <spark-worker-2-public-ip>
     User <vm-user>
     IdentityFile ~/.ssh/<private-key-file>
@@ -66,14 +66,14 @@ chmod 600 ~/.ssh/<private-key-file>
 Run one command at a time. Use `exit` to return to your Mac:
 
 ```zsh
-ssh streamify-kafka
-ssh streamify-airflow
-ssh streamify-spark
-ssh streamify-spark-worker-1
-ssh streamify-spark-worker-2
+ssh kafka-vm
+ssh airflow-vm
+ssh spark-master-vm
+ssh spark-worker-1-vm
+ssh spark-worker-2-vm
 ```
 
-`streamify-spark` and `streamify-spark-master` refer to the same VM.
+`spark-master-vm` refers to the Spark master.
 Check the host fingerprint before accepting a first connection.
 
 The public IP used by SSH must match `admin_source_cidr` in `terraform.tfvars`.
@@ -88,7 +88,7 @@ Forwarding lasts only as long as the SSH connection. Closing the terminal or pre
 Airflow:
 
 ```zsh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:8080 streamify-airflow
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:8080 airflow-vm
 ```
 
 Open `http://localhost:8080`.
@@ -96,7 +96,7 @@ Open `http://localhost:8080`.
 Spark master, using local port 8082 to avoid a conflict with Airflow:
 
 ```zsh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8082:127.0.0.1:8080 streamify-spark
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8082:127.0.0.1:8080 spark-master-vm
 ```
 
 Open `http://localhost:8082`.
@@ -104,7 +104,7 @@ Open `http://localhost:8082`.
 Kafka Control Center:
 
 ```zsh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:9021:127.0.0.1:9021 streamify-kafka
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:9021:127.0.0.1:9021 kafka-vm
 ```
 
 Open `http://localhost:9021`. Broker port 9092 handles messages; it is not a web page.

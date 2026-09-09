@@ -149,15 +149,20 @@ az vm deallocate --resource-group "<resource-group>" --name "<vm-name>"
 
 Deallocation stops compute charges. Disks, public IPs, and ADLS still incur charges. This configuration has no automatic shutdown.
 
-The script stops only the **five project VMs** in `streamify-rg` in the current Azure CLI subscription: Kafka, Airflow, Spark Master, and two Workers. It does not touch other VMs. Run from the project root on your Mac:
+The script starts or stops only the **five project VMs** in `streamify-rg` in the current Azure CLI subscription: Kafka, Airflow, Spark Master, and two Workers. It does not touch other VMs. Run from the project root on your Mac:
 
 ```bash
 # Preview the subscription and targets without stopping anything
-bash scripts/stop_compute.sh --dry-run
+bash scripts/stop_compute.sh stop --dry-run
 
 # After reviewing the scope, stop and deallocate the VMs
-bash scripts/stop_compute.sh
+bash scripts/stop_compute.sh stop
+
+# Start the five VMs
+bash scripts/stop_compute.sh start
 ```
+
+`start` and `stop` both support `--dry-run`; an explicit action is required. Startup verifies VM power state, not the readiness of services inside Docker.
 
 The script waits for each operation and checks the resulting power state. If one VM fails, it continues with the others and returns a failure status at the end.
 The target resource group and five VM names match `terraform/main.tf`. Select the subscription with `az account set`; no account details or IPs are stored in the script.

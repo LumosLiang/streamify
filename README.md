@@ -16,7 +16,7 @@ Eventsim 使用 [Million Song Dataset](http://millionsongdataset.com) 的 [10,00
 
 - Terraform 已适配 Azure：五台 VM、必要网络和 ADLS Gen2。
 - Kafka 与 Eventsim 已适配私网地址、内存配置和安装脚本。
-- Spark 流任务、Airflow DAG 和 dbt SQL 仍需迁移；Snowflake 接入尚未完成。
+- Spark standalone 集群和 ADLS Gen2 流写入已适配；Airflow DAG、dbt SQL 和 Snowflake 接入尚未完成。
 
 目标链路：
 
@@ -34,6 +34,7 @@ dbt 把转换 SQL 提交给 Snowflake 执行。上图表示目标架构，不代
 2. [Terraform 安装与部署](setup/terraform.md)
 3. [SSH 连接与端口转发](setup/ssh.md)
 4. [Kafka 与 Eventsim](setup/kafka.md)
+5. [Spark standalone 集群](setup/spark.md)
 
 文档使用占位符。自己的 IP、订阅信息和密钥只填写到本地配置，不要提交到仓库。
 
@@ -50,7 +51,6 @@ dbt 把转换 SQL 提交给 Snowflake 执行。上图表示目标架构，不代
 以下文档仍是原 GCP 版本，不要直接作为 Azure 部署步骤：
 
 - [GCP 配置](setup/gcp.md)
-- [Spark 配置](setup/spark.md)
 - [Airflow 配置](setup/airflow.md)
 - [调试说明](setup/debug.md)
 - [原作者视频演示](https://youtu.be/vzoYhI8KTlY)

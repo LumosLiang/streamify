@@ -14,23 +14,31 @@ def string_decode(s, encoding='utf-8'):
     else:
         return s
 
-def create_or_get_spark_session(app_name, master="yarn"):
+def create_or_get_spark_session(app_name, master=None, storage_account=None):
     """
     Creates or gets a Spark Session
 
     Parameters:
         app_name : str
             Pass the name of your app
-        master : str
-            Choosing the Spark master, yarn is the default
+        master : str, optional
+            Spark standalone URL. The submit command supplies this value.
+        storage_account : str, optional
+            ADLS Gen2 account name used with the VM managed identity.
     Returns:
         spark: SparkSession
     """
-    spark = (SparkSession
-             .builder
-             .appName(app_name)
-             .master(master=master)
-             .getOrCreate())
+    builder = SparkSession.builder.appName(app_name)
+    if master:
+        builder = builder.master(master)
+    if storage_account:
+        account_host = f"{storage_account}.dfs.core.windows.net"
+        builder = (builder
+                   .config(f"spark.hadoop.fs.azure.account.auth.type.{account_host}", "OAuth")
+                   .config(f"spark.hadoop.fs.azure.account.oauth.provider.type.{account_host}",
+                           "org.apache.hadoop.fs.azurebfs.oauth2.MsiTokenProvider"))
+
+    spark = builder.getOrCreate()
 
     return spark
 
