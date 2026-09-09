@@ -162,4 +162,9 @@ resource "azurerm_role_assignment" "airflow_storage" {
   principal_id         = azurerm_linux_virtual_machine.vm["airflow"].identity[0].principal_id
 }
 
-# BigQuery datasets are removed. Snowflake STG/PROD setup is a later step.
+resource "azurerm_role_assignment" "admin_storage_reader" {
+  scope                = azurerm_storage_account.lake.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = var.admin_object_id
+  principal_type       = "User"
+}

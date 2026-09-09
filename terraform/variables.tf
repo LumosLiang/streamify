@@ -14,6 +14,11 @@ variable "storage_account_name" {
   type        = string
 }
 
+variable "admin_object_id" {
+  description = "Microsoft Entra object ID of the user allowed to inspect Blob data."
+  type        = string
+}
+
 variable "admin_username" {
   type    = string
   default = "streamify"

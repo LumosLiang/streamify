@@ -1,5 +1,6 @@
 subscription_id      = "<subscription-id>"
 storage_account_name = "replacewithuniquename"
+admin_object_id      = "<your-entra-object-id>"
 admin_source_cidr    = "<your-public-ip>/32"
 ssh_public_key_path  = "~/.ssh/id_ed25519.pub"
 location             = "southeastasia"

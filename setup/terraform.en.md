@@ -38,6 +38,7 @@ Fill in these values:
 | --- | --- |
 | `subscription_id` | The credit subscription's Subscription ID from Azure Portal |
 | `storage_account_name` | A globally unique name with 3–24 lowercase letters or digits |
+| `admin_object_id` | The Object ID returned by `az ad signed-in-user show --query id --output tsv` |
 | `admin_source_cidr` | The public IPv4 used by your SSH traffic, followed by `/32` |
 | `ssh_public_key_path` | Your Mac's public key path, such as `~/.ssh/id_ed25519.pub` |
 | `location` | `southeastasia`, which is Singapore |
@@ -124,6 +125,7 @@ The original GCP bucket-wide 30-day deletion rule is not carried over, to avoid 
 | Purpose | Identity and permissions | Where it is configured |
 | --- | --- | --- |
 | Deploy resources from your Mac | Your Azure user and deployment permissions | Azure CLI login and subscription IAM |
+| Inspect Blob data in the portal | Your Azure user, Storage Blob Data Reader | Created by Terraform |
 | Spark reads and writes ADLS | VM managed identity, Storage Blob Data Contributor | Created by Terraform |
 | Airflow reads ADLS | VM managed identity, Storage Blob Data Reader | Created by Terraform |
 | AWS Snowflake reads ADLS | An Azure service principal associated with Snowflake | Authorized later through a storage integration |

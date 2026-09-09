@@ -38,6 +38,7 @@ cp terraform.tfvars.example terraform.tfvars
 | --- | --- |
 | `subscription_id` | Azure Portal 中额度订阅的 Subscription ID |
 | `storage_account_name` | 自己起的全球唯一名称，3–24 位小写字母或数字 |
+| `admin_object_id` | `az ad signed-in-user show --query id --output tsv` 返回的 Object ID |
 | `admin_source_cidr` | SSH 实际公网出口 IPv4 加 `/32` |
 | `ssh_public_key_path` | Mac 上的公钥路径，例如 `~/.ssh/id_ed25519.pub` |
 | `location` | `southeastasia`，即新加坡 |
@@ -124,6 +125,7 @@ azure://<account-name>.blob.core.windows.net/streamify/
 | 用途 | 身份与权限 | 配置位置 |
 | --- | --- | --- |
 | 在 Mac 上部署资源 | 你的 Azure 用户及部署权限 | Azure CLI 登录、订阅 IAM |
+| 在 Portal 查看 Blob 数据 | 你的 Azure 用户，Storage Blob Data Reader | Terraform 创建 |
 | Spark 读写 ADLS | VM Managed Identity，Storage Blob Data Contributor | Terraform 创建 |
 | Airflow 读取 ADLS | VM Managed Identity，Storage Blob Data Reader | Terraform 创建 |
 | AWS Snowflake 读取 ADLS | Snowflake 对应的 Azure Service Principal | 后续配置 Storage Integration 时授权 |
